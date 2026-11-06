@@ -25,13 +25,13 @@ export default [
         path: '/operations/users',
         name: '用户管理',
         icon: 'user',
-        component: './coming-soon',
+        component: './customer-users',
       },
       {
         path: '/operations/verifications',
         name: '认证审核',
         icon: 'safety',
-        component: './coming-soon',
+        component: './verifications',
       },
       {
         path: '/operations/channels',
@@ -82,6 +82,12 @@ export default [
         name: '管理员账号',
         icon: 'team',
         component: './users',
+      },
+      {
+        path: '/system/store-platforms',
+        name: '店铺平台',
+        icon: 'shop',
+        component: './store-platforms',
       },
     ],
   },

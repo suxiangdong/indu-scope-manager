@@ -100,7 +100,6 @@ const Attributes: React.FC = () => {
 
   const handleSubmit = async (values: AttributeFormValues) => {
     const data = {
-      code: values.code,
       name: values.name,
       value_type: Number(values.value_type),
       input_type: values.input_type,
@@ -137,7 +136,6 @@ const Attributes: React.FC = () => {
   const handleOptionSubmit = async (values: AttributeOptionFormValues) => {
     if (!optionsAttribute) return false;
     const data = {
-      code: values.code,
       name: values.name,
       sort_order: Number(values.sort_order || 0),
       status: values.status === undefined ? 1 : Number(values.status),
@@ -176,7 +174,7 @@ const Attributes: React.FC = () => {
   };
 
   const columns: ProColumns<AttributeListItem>[] = [
-    { title: '编码', dataIndex: 'code', copyable: true },
+    { title: '系统编码', dataIndex: 'code', copyable: true },
     { title: '属性名称', dataIndex: 'name' },
     {
       title: '值类型',
@@ -257,7 +255,7 @@ const Attributes: React.FC = () => {
   ];
 
   const optionColumns: ProColumns<AttributeOption>[] = [
-    { title: '编码', dataIndex: 'code', copyable: true },
+    { title: '系统编码', dataIndex: 'code', copyable: true },
     { title: '选项名称', dataIndex: 'name' },
     { title: '排序', dataIndex: 'sort_order', width: 80 },
     {
@@ -332,7 +330,6 @@ const Attributes: React.FC = () => {
         initialValues={
           editingAttribute
             ? {
-                code: editingAttribute.code,
                 name: editingAttribute.name,
                 value_type: editingAttribute.value_type,
                 input_type: editingAttribute.input_type,
@@ -351,12 +348,6 @@ const Attributes: React.FC = () => {
         }}
         onFinish={handleSubmit}
       >
-        <ProFormText
-          name="code"
-          label="属性编码"
-          placeholder="例如：voltage"
-          rules={[{ required: true, message: '请输入属性编码' }]}
-        />
         <ProFormText
           name="name"
           label="属性名称"
@@ -449,7 +440,6 @@ const Attributes: React.FC = () => {
         initialValues={
           editingOption
             ? {
-                code: editingOption.code,
                 name: editingOption.name,
                 sort_order: editingOption.sort_order,
                 status: editingOption.status,
@@ -462,11 +452,6 @@ const Attributes: React.FC = () => {
         }}
         onFinish={handleOptionSubmit}
       >
-        <ProFormText
-          name="code"
-          label="选项编码"
-          rules={[{ required: true, message: '请输入选项编码' }]}
-        />
         <ProFormText
           name="name"
           label="选项名称"

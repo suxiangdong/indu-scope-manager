@@ -20,7 +20,6 @@ export type AttributeListItem = {
 };
 
 export type AttributeFormValues = {
-  code: string;
   name: string;
   value_type: number;
   input_type: string;
@@ -44,7 +43,6 @@ export type AttributeOption = {
 };
 
 export type AttributeOptionFormValues = {
-  code: string;
   name: string;
   sort_order?: number;
   status?: number;
@@ -58,6 +56,7 @@ export type CategoryAttributeBinding = {
   attribute_name: string;
   group_id?: number;
   group_code?: string;
+  group_display_name?: string;
   is_required: number;
   is_filterable: number;
   is_searchable: number;
@@ -82,6 +81,7 @@ export type AttributeGroup = {
   id: number;
   code: string;
   name: string;
+  display_name: string;
   sort_order: number;
   status: number;
   attribute_count: number;
@@ -91,8 +91,8 @@ export type AttributeGroup = {
 };
 
 export type AttributeGroupFormValues = {
-  code: string;
   name: string;
+  display_name: string;
   sort_order?: number;
   status?: number;
 };
@@ -116,6 +116,7 @@ export type CategoryGroupBinding = {
   group_id: number;
   group_code: string;
   group_name: string;
+  group_display_name: string;
   sort_order: number;
   status: number;
   attribute_count: number;
@@ -138,7 +139,7 @@ export async function listAttributes() {
   return ensureSuccess(response, '获取属性列表失败');
 }
 
-export async function createAttribute(data: Required<AttributeFormValues>) {
+export async function createAttribute(data: AttributeFormValues) {
   const response = await request<ApiEnvelope<AttributeListItem>>(
     '/api/v1/admin/attributes/create',
     { method: 'POST', data },
@@ -171,7 +172,7 @@ export async function listAttributeOptions(attributeId: number) {
 }
 
 export async function createAttributeOption(
-  data: Required<AttributeOptionFormValues> & { attribute_id: number },
+  data: AttributeOptionFormValues & { attribute_id: number },
 ) {
   const response = await request<ApiEnvelope<AttributeOption>>(
     '/api/v1/admin/attributes/options/create',
@@ -237,7 +238,7 @@ export async function listAttributeGroups() {
 }
 
 export async function createAttributeGroup(
-  data: Required<AttributeGroupFormValues>,
+  data: AttributeGroupFormValues,
 ) {
   const response = await request<ApiEnvelope<AttributeGroup>>(
     '/api/v1/admin/attribute-groups/create',
@@ -302,6 +303,14 @@ export async function listCategoryGroups(categoryId: number) {
     { method: 'GET', params: { category_id: categoryId } },
   );
   return ensureSuccess(response, '获取类目分组失败');
+}
+
+export async function listGroupCategories(groupId: number) {
+  const response = await request<ApiEnvelope<{ items: CategoryGroupBinding[] }>>(
+    '/api/v1/admin/category-groups',
+    { method: 'GET', params: { group_id: groupId } },
+  );
+  return ensureSuccess(response, '获取分组已绑定类目失败');
 }
 
 export async function bindCategoryGroup(data: {

@@ -8,7 +8,16 @@ import {
   ProFormText,
   ProTable,
 } from '@ant-design/pro-components';
-import { App, Button, Drawer, Popconfirm, Select, Space, Tag } from 'antd';
+import {
+  App,
+  Button,
+  Cascader,
+  Drawer,
+  Popconfirm,
+  Select,
+  Space,
+  Tag,
+} from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -24,7 +33,7 @@ import {
   listAttributeGroups,
   listCategoryAttributeBindings,
   listAttributes,
-  listCategoryGroups,
+  listGroupCategories,
   listGroupAttributes,
   saveGroupAttribute,
   saveCategoryAttributeBinding,
@@ -32,6 +41,36 @@ import {
   updateAttributeGroup,
 } from '@/services/attributes';
 import { listCategories } from '@/services/categories';
+
+type CategoryOption = {
+  value: number;
+  label: string;
+  children?: CategoryOption[];
+};
+
+function buildCategoryOptions(
+  categories: { id: number; parent_id: number; name: string }[],
+) {
+  const options = new Map<number, CategoryOption>();
+  const children = new Map<number, CategoryOption[]>();
+  categories.forEach((category) => {
+    options.set(category.id, { value: category.id, label: category.name });
+    const siblings = children.get(category.parent_id) || [];
+    const option = options.get(category.id);
+    if (option) siblings.push(option);
+    children.set(category.parent_id, siblings);
+  });
+  options.forEach((option, id) => {
+    const nested = children.get(id);
+    if (nested?.length) option.children = nested;
+  });
+  const rootOptions = children.get(0);
+  if (rootOptions?.length) return rootOptions;
+  return categories
+    .filter((category) => !options.has(category.parent_id))
+    .map((category) => options.get(category.id))
+    .filter((option): option is CategoryOption => Boolean(option));
+}
 
 const AttributeGroups: React.FC = () => {
   const { message } = App.useApp();
@@ -90,10 +129,24 @@ const AttributeGroups: React.FC = () => {
       });
   }, [message]);
 
-  const leafCategories = useMemo(() => {
-    const parentIDs = new Set(categories.map((item) => item.parent_id));
-    return categories.filter((item) => !parentIDs.has(item.id));
-  }, [categories]);
+  const categoryOptions = useMemo(() => buildCategoryOptions(categories), [categories]);
+  const categoryByID = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  );
+  const selectedCategoryPath = useMemo(() => {
+    if (!selectedCategoryId) return [];
+    const path: number[] = [];
+    const visited = new Set<number>();
+    let currentID: number | undefined = selectedCategoryId;
+    while (currentID && !visited.has(currentID)) {
+      visited.add(currentID);
+      path.unshift(currentID);
+      const parentID: number | undefined = categoryByID.get(currentID)?.parent_id;
+      currentID = parentID && parentID !== 0 ? parentID : undefined;
+    }
+    return path;
+  }, [categoryByID, selectedCategoryId]);
 
   const openAttributeDrawer = async (group: AttributeGroup) => {
     setAttributeDrawerGroup(group);
@@ -141,22 +194,20 @@ const AttributeGroups: React.FC = () => {
 
   const openCategoryDrawer = async (group: AttributeGroup) => {
     setCategoryDrawerGroup(group);
-    if (!selectedCategoryId && leafCategories.length > 0) {
-      setSelectedCategoryId(leafCategories[0].id);
-    }
+    setSelectedCategoryId(undefined);
   };
 
   useEffect(() => {
-    if (!categoryDrawerGroup || !selectedCategoryId) {
+    if (!categoryDrawerGroup) {
       setCategoryGroups([]);
       return;
     }
-    listCategoryGroups(selectedCategoryId)
+    listGroupCategories(categoryDrawerGroup.id)
       .then((result) => setCategoryGroups(result.items))
       .catch((error) => {
-        message.error(error instanceof Error ? error.message : '获取类目分组失败');
+        message.error(error instanceof Error ? error.message : '获取分组已绑定类目失败');
       });
-  }, [categoryDrawerGroup, selectedCategoryId, message]);
+  }, [categoryDrawerGroup, message]);
 
   const handleBindCategory = async () => {
     if (!categoryDrawerGroup || !selectedCategoryId) return;
@@ -166,7 +217,7 @@ const AttributeGroups: React.FC = () => {
         group_id: categoryDrawerGroup.id,
       });
       message.success('分组已绑定到类目');
-      const result = await listCategoryGroups(selectedCategoryId);
+      const result = await listGroupCategories(categoryDrawerGroup.id);
       setCategoryGroups(result.items);
       reloadGroups();
     } catch (error) {
@@ -178,8 +229,8 @@ const AttributeGroups: React.FC = () => {
     try {
       await unbindCategoryGroup(categoryId, groupId);
       message.success('类目分组绑定已解除');
-      if (selectedCategoryId) {
-        const result = await listCategoryGroups(selectedCategoryId);
+      if (categoryDrawerGroup) {
+        const result = await listGroupCategories(categoryDrawerGroup.id);
         setCategoryGroups(result.items);
       }
       reloadGroups();
@@ -229,8 +280,8 @@ const AttributeGroups: React.FC = () => {
   const handleGroupSubmit = async (values: AttributeGroupFormValues) => {
     try {
       const data = {
-        code: values.code,
         name: values.name,
+        display_name: values.display_name,
         sort_order: Number(values.sort_order || 0),
         status: values.status === undefined ? 1 : Number(values.status),
       };
@@ -262,8 +313,13 @@ const AttributeGroups: React.FC = () => {
   };
 
   const groupColumns: ProColumns<AttributeGroup>[] = [
-    { title: '分组编码', dataIndex: 'code', copyable: true },
-    { title: '分组名称', dataIndex: 'name' },
+    { title: '系统编码', dataIndex: 'code', copyable: true },
+    { title: '分组名称（内部）', dataIndex: 'name' },
+    {
+      title: '显示名称',
+      dataIndex: 'display_name',
+      render: (_, record) => record.display_name || record.name,
+    },
     { title: '属性数', dataIndex: 'attribute_count', width: 90 },
     { title: '绑定类目数', dataIndex: 'category_count', width: 110 },
     { title: '排序', dataIndex: 'sort_order', width: 80 },
@@ -374,7 +430,11 @@ const AttributeGroups: React.FC = () => {
 
   const categoryAttributeColumns: ProColumns<CategoryAttributeBinding>[] = [
     { title: '属性', dataIndex: 'attribute_name' },
-    { title: '分组', dataIndex: 'group_name', render: (_, record) => record.group_name || '-' },
+    {
+      title: '分组',
+      dataIndex: 'group_display_name',
+      render: (_, record) => record.group_display_name || record.group_name || '-',
+    },
     {
       title: '是否必填',
       dataIndex: 'is_required',
@@ -432,12 +492,12 @@ const AttributeGroups: React.FC = () => {
         initialValues={
           editingGroup
             ? {
-                code: editingGroup.code,
                 name: editingGroup.name,
+                display_name: editingGroup.display_name,
                 sort_order: editingGroup.sort_order,
                 status: editingGroup.status,
               }
-            : { sort_order: 0, status: 1 }
+            : { display_name: '', sort_order: 0, status: 1 }
         }
         onOpenChange={(open) => {
           setGroupFormOpen(open);
@@ -445,8 +505,18 @@ const AttributeGroups: React.FC = () => {
         }}
         onFinish={handleGroupSubmit}
       >
-        <ProFormText name="code" label="分组编码" rules={[{ required: true }]} />
-        <ProFormText name="name" label="分组名称" rules={[{ required: true }]} />
+        <ProFormText
+          name="name"
+          label="分组名称（内部）"
+          tooltip="用于区分相似分组，不直接作为前端展示名称。"
+          rules={[{ required: true }]}
+        />
+        <ProFormText
+          name="display_name"
+          label="显示名称"
+          tooltip="前端展示给用户的分组名称。"
+          rules={[{ required: true }]}
+        />
         <ProFormDigit name="sort_order" label="排序值" min={0} precision={0} />
         <ProFormSelect
           name="status"
@@ -457,7 +527,11 @@ const AttributeGroups: React.FC = () => {
       </ModalForm>
 
       <Drawer
-        title={attributeDrawerGroup ? `管理分组属性：${attributeDrawerGroup.name}` : '管理分组属性'}
+        title={
+          attributeDrawerGroup
+            ? `管理分组属性：${attributeDrawerGroup.display_name || attributeDrawerGroup.name}`
+            : '管理分组属性'
+        }
         open={Boolean(attributeDrawerGroup)}
         width={820}
         onClose={() => {
@@ -513,7 +587,11 @@ const AttributeGroups: React.FC = () => {
       </Drawer>
 
       <Drawer
-        title={categoryDrawerGroup ? `绑定类目：${categoryDrawerGroup.name}` : '绑定类目'}
+        title={
+          categoryDrawerGroup
+            ? `绑定类目：${categoryDrawerGroup.display_name || categoryDrawerGroup.name}`
+            : '绑定类目'
+        }
         open={Boolean(categoryDrawerGroup)}
         width={820}
         onClose={() => {
@@ -525,12 +603,17 @@ const AttributeGroups: React.FC = () => {
         {categoryDrawerGroup && (
           <>
             <Space style={{ marginBottom: 16 }}>
-              <Select
+              <Cascader
                 style={{ width: 320 }}
-                placeholder="选择叶子类目"
-                value={selectedCategoryId}
-                options={leafCategories.map((category) => ({ label: category.name, value: category.id }))}
-                onChange={setSelectedCategoryId}
+                placeholder="选择末级类目"
+                value={selectedCategoryPath}
+                options={categoryOptions}
+                changeOnSelect={false}
+                allowClear
+                onChange={(value) => {
+                  const last = value[value.length - 1];
+                  setSelectedCategoryId(typeof last === 'number' ? last : undefined);
+                }}
               />
               <Button type="primary" onClick={handleBindCategory} disabled={!selectedCategoryId}>
                 绑定当前类目
@@ -540,7 +623,7 @@ const AttributeGroups: React.FC = () => {
               actionRef={categoryActionRef}
               rowKey={(record) => `${record.category_id}-${record.group_id}`}
               columns={categoryColumns}
-              dataSource={categoryGroups.filter((item) => item.group_id === categoryDrawerGroup.id)}
+              dataSource={categoryGroups}
               search={false}
               pagination={false}
               options={false}
