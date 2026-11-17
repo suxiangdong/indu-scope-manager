@@ -1,0 +1,56 @@
+name: NodeJS with Grunt
+
+on:
+  push:
+    branches: [ "main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: production
+
+    strategy:
+      matrix:
+        node-version: ['23.6.1']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Build
+      run: |
+        npm install
+        npm run build
+        tar -czf indu-manager-front.tar.gz dist/
+
+    - name: Save private key to file
+      run: |
+        echo "${{ secrets.ALIYUN_ECS }}" > /tmp/ecs_ssh_key
+        chmod 600 /tmp/ecs_ssh_key
+    - name: Add ECS server to known_hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H 182.92.156.58 >> ~/.ssh/known_hosts
+
+    - name: Upload to ECS server using SCP
+      run: |
+        scp -i /tmp/ecs_ssh_key ./indu-manager-front.tar.gz ecs-user@182.92.156.58:~
+
+    - name: Run deploy script on ECS
+      run: |
+        ssh -i /tmp/ecs_ssh_key ecs-user@182.92.156.58 << 'EOF'
+          set -e
+          echo "触发部署脚本..."
+          cd /data/deploy/cffy-manager-front
+          sudo ./deploy.sh
+
+          echo "部署完成"
+        EOF
+    - name: Clean up
+      run: |
+        rm -rf /tmp/ecs_ssh_key
+        rm -rf indu-manager-front.tar.gz
