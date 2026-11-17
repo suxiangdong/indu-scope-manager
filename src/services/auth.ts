@@ -15,6 +15,7 @@ export type AdminUser = {
   name: string;
   phone?: string;
   status: number;
+  is_super_admin?: boolean;
   role_codes?: string[];
 };
 

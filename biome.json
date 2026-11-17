@@ -23,6 +23,7 @@
       "!biome.json",
       "!tailwind.css",
       "!package-lock.json",
+      "!AGENTS.md",
       "!**/.worktrees"
     ]
   },

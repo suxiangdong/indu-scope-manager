@@ -29,11 +29,23 @@ npm run preview
 
 - `/user/login`：管理员登录
 - `/dashboard`：管理工作台
-- `/system/admins`：管理员账号
+- `/analytics`：产品和需求点击统计
+- `/operations/users`：前台用户管理、超级管理员切换角色
+- `/operations/verifications`：认证审核
+- `/operations/requirements`：需求审核
+- `/operations/vip-orders`：会员订单
+- `/operations/vip-refunds`：退款管理
+- `/system/admins`：管理员账号（仅超级管理员）
+- `/system/store-platforms`：店铺平台
+- `/system/app-pages`：关于我们和联系我们内容
+- `/system/vip-plans`：会员套餐
+- `/system/vip-agreements`：会员协议
 - `/catalog/categories`：产品类目管理
+- `/catalog/hot-categories`：首页热门分类
 - `/catalog/attributes`：全局属性和属性选项管理
 - `/catalog/attribute-groups`：可复用属性分组、分组属性和叶子类目绑定
-- `/catalog/products`：产品管理占位页
+- `/catalog/products`：产品审核和上下架
+- `/catalog/stock-units`：库存单位与类目绑定
 
 ## 属性管理模型
 

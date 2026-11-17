@@ -5,12 +5,14 @@ import {
   ProFormSelect,
   ProTable,
 } from '@ant-design/pro-components';
+import { useModel } from '@umijs/max';
 import { App, Button, Tag } from 'antd';
 import React, { useRef, useState } from 'react';
 
 import {
-  listCustomerUsers,
   type CustomerUser,
+  listCustomerUsers,
+  updateCustomerUserRole,
   updateCustomerUserStatus,
 } from '@/services/customerUsers';
 
@@ -20,7 +22,15 @@ const statusOptions = [
   { label: '已禁用', value: 2 },
 ];
 
-const verificationStatusLabels: Record<string, { text: string; color: string }> = {
+const roleOptions = [
+  { label: '采购方', value: 1 },
+  { label: '供货方', value: 2 },
+];
+
+const verificationStatusLabels: Record<
+  string,
+  { text: string; color: string }
+> = {
   unsubmitted: { text: '未提交', color: 'default' },
   pending: { text: '审核中', color: 'processing' },
   rejected: { text: '已驳回', color: 'error' },
@@ -33,13 +43,27 @@ function statusLabel(status: number) {
 
 const CustomerUsers: React.FC = () => {
   const { message } = App.useApp();
+  const { initialState } = useModel('@@initialState');
+  const isSuperAdmin = Boolean(
+    (
+      initialState?.currentUser as
+        | (API.CurrentUser & { is_super_admin?: boolean })
+        | undefined
+    )?.is_super_admin,
+  );
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [statusFormOpen, setStatusFormOpen] = useState(false);
+  const [roleFormOpen, setRoleFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<CustomerUser>();
 
   const openStatusForm = (record: CustomerUser) => {
     setEditingUser(record);
     setStatusFormOpen(true);
+  };
+
+  const openRoleForm = (record: CustomerUser) => {
+    setEditingUser(record);
+    setRoleFormOpen(true);
   };
 
   const handleStatusSubmit = async (values: { status: number }) => {
@@ -52,37 +76,121 @@ const CustomerUsers: React.FC = () => {
       actionRef.current?.reload();
       return true;
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '修改用户状态失败');
+      message.error(
+        error instanceof Error ? error.message : '修改用户状态失败',
+      );
+      return false;
+    }
+  };
+
+  const handleRoleSubmit = async (values: { role: number }) => {
+    if (!editingUser) return false;
+    try {
+      await updateCustomerUserRole(editingUser.id, Number(values.role));
+      message.success('用户角色已切换');
+      setRoleFormOpen(false);
+      setEditingUser(undefined);
+      actionRef.current?.reload();
+      return true;
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : '切换用户角色失败',
+      );
       return false;
     }
   };
 
   const columns: ProColumns<CustomerUser>[] = [
     { title: '用户 ID', dataIndex: 'id', width: 90, search: false },
+    {
+      title: '企业名称',
+      dataIndex: 'company_name',
+      ellipsis: true,
+      search: false,
+      render: (_, record) => record.company_name || '未设置',
+    },
     { title: '手机号', dataIndex: 'phone', copyable: true },
     {
-      title: '角色', dataIndex: 'role', valueType: 'select', valueEnum: { 0: '待完善', 1: '采购方', 2: '供应方' },
-      render: (_, record) => record.role === 0 ? '待完善' : record.role === 1 ? '采购方' : '供应方',
+      title: '角色',
+      dataIndex: 'role',
+      valueType: 'select',
+      valueEnum: { 0: '待完善', 1: '采购方', 2: '供应方' },
+      render: (_, record) =>
+        record.role === 0 ? '待完善' : record.role === 1 ? '采购方' : '供应方',
     },
     {
-      title: '用户类型', dataIndex: 'user_type', valueType: 'select', valueEnum: { 1: '个人', 2: '企业' },
-      render: (_, record) => record.user_type === 1 ? '个人' : '企业',
+      title: '用户类型',
+      dataIndex: 'user_type',
+      valueType: 'select',
+      valueEnum: { 1: '个人', 2: '企业' },
+      render: (_, record) => (record.user_type === 1 ? '个人' : '企业'),
     },
     {
-      title: '账号状态', dataIndex: 'status', valueType: 'select', valueEnum: { 0: '未认证', 1: '已认证', 2: '已禁用' }, search: true,
-      render: (_, record) => <Tag color={record.status === 2 ? 'error' : record.status === 1 ? 'success' : 'default'}>{statusLabel(record.status)}</Tag>,
+      title: '账号状态',
+      dataIndex: 'status',
+      valueType: 'select',
+      valueEnum: { 0: '未认证', 1: '已认证', 2: '已禁用' },
+      search: true,
+      render: (_, record) => (
+        <Tag
+          color={
+            record.status === 2
+              ? 'error'
+              : record.status === 1
+                ? 'success'
+                : 'default'
+          }
+        >
+          {statusLabel(record.status)}
+        </Tag>
+      ),
     },
     {
-      title: '认证状态', dataIndex: 'verification_status', search: false,
+      title: '认证状态',
+      dataIndex: 'verification_status',
+      search: false,
       render: (_, record) => {
-        const item = verificationStatusLabels[record.verification_status] || { text: record.verification_status, color: 'default' };
-        return <Tag color={item.color}>{item.text}{record.verification_type ? ` · ${record.verification_type === 'company' ? '企业' : '个人'}` : ''}</Tag>;
+        const item = verificationStatusLabels[record.verification_status] || {
+          text: record.verification_status,
+          color: 'default',
+        };
+        return (
+          <Tag color={item.color}>
+            {item.text}
+            {record.verification_type
+              ? ` · ${record.verification_type === 'company' ? '企业' : '个人'}`
+              : ''}
+          </Tag>
+        );
       },
     },
-    { title: '微信绑定', dataIndex: 'wechat_bound', search: false, render: (_, record) => record.wechat_bound ? '已绑定' : '未绑定' },
-    { title: '注册时间', dataIndex: 'created_at', valueType: 'dateTime', search: false },
     {
-      title: '操作', valueType: 'option', render: (_, record) => <Button type="link" onClick={() => openStatusForm(record)}>修改状态</Button>,
+      title: '微信绑定',
+      dataIndex: 'wechat_bound',
+      search: false,
+      render: (_, record) => (record.wechat_bound ? '已绑定' : '未绑定'),
+    },
+    {
+      title: '注册时间',
+      dataIndex: 'created_at',
+      valueType: 'dateTime',
+      search: false,
+    },
+    {
+      title: '操作',
+      valueType: 'option',
+      render: (_, record) => (
+        <>
+          <Button type="link" onClick={() => openStatusForm(record)}>
+            修改状态
+          </Button>
+          {isSuperAdmin && (
+            <Button type="link" onClick={() => openRoleForm(record)}>
+              切换角色
+            </Button>
+          )}
+        </>
+      ),
     },
   ];
 
@@ -96,8 +204,12 @@ const CustomerUsers: React.FC = () => {
           const result = await listCustomerUsers({
             phone: params.phone,
             role: params.role === undefined ? undefined : Number(params.role),
-            user_type: params.user_type === undefined ? undefined : Number(params.user_type),
-            status: params.status === undefined ? undefined : Number(params.status),
+            user_type:
+              params.user_type === undefined
+                ? undefined
+                : Number(params.user_type),
+            status:
+              params.status === undefined ? undefined : Number(params.status),
           });
           return { data: result.items, success: true };
         }}
@@ -107,15 +219,48 @@ const CustomerUsers: React.FC = () => {
 
       <ModalForm<{ status: number }>
         key={editingUser?.id ?? 'status'}
-        title={editingUser ? `修改用户 ${editingUser.phone} 状态` : '修改用户状态'}
+        title={
+          editingUser ? `修改用户 ${editingUser.phone} 状态` : '修改用户状态'
+        }
         open={statusFormOpen}
         width={420}
         modalProps={{ destroyOnClose: true }}
         initialValues={{ status: editingUser?.status ?? 0 }}
-        onOpenChange={(open) => { setStatusFormOpen(open); if (!open) setEditingUser(undefined); }}
+        onOpenChange={(open) => {
+          setStatusFormOpen(open);
+          if (!open) setEditingUser(undefined);
+        }}
         onFinish={handleStatusSubmit}
       >
-        <ProFormSelect name="status" label="账号状态" options={statusOptions} rules={[{ required: true, message: '请选择账号状态' }]} />
+        <ProFormSelect
+          name="status"
+          label="账号状态"
+          options={statusOptions}
+          rules={[{ required: true, message: '请选择账号状态' }]}
+        />
+      </ModalForm>
+
+      <ModalForm<{ role: number }>
+        key={`role-${editingUser?.id ?? 'role'}`}
+        title={
+          editingUser ? `切换用户 ${editingUser.phone} 角色` : '切换用户角色'
+        }
+        open={roleFormOpen}
+        width={420}
+        modalProps={{ destroyOnClose: true }}
+        initialValues={{ role: editingUser?.role === 2 ? 2 : 1 }}
+        onOpenChange={(open) => {
+          setRoleFormOpen(open);
+          if (!open) setEditingUser(undefined);
+        }}
+        onFinish={handleRoleSubmit}
+      >
+        <ProFormSelect
+          name="role"
+          label="业务角色"
+          options={roleOptions}
+          rules={[{ required: true, message: '请选择业务角色' }]}
+        />
       </ModalForm>
     </PageContainer>
   );

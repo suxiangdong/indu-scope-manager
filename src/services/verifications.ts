@@ -21,6 +21,7 @@ export type VerificationListItem = {
 
 export type VerificationDetail = VerificationListItem & {
   user_status: number;
+  role: number;
   personal?: {
     real_name: string;
     id_number_masked?: string;
@@ -47,6 +48,9 @@ export type VerificationDetail = VerificationListItem & {
     business_license_content_type?: string;
     registered_address: string;
     introduction?: string;
+    store_platform_id?: number;
+    store_platform_name?: string;
+    store_url?: string;
     offices: string[];
     factories: string[];
     contacts: Array<{ name: string; position?: string; phone: string }>;

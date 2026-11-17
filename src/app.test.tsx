@@ -12,14 +12,16 @@ const mockHistory = {
 };
 
 const mockQueryCurrentUser = vi.fn();
+const mockClearAccessToken = vi.fn();
 
 vi.mock('@umijs/max', () => ({
   history: mockHistory,
   Link: ({ children }: any) => children,
 }));
 
-vi.mock('@/services/ant-design-pro/api', () => ({
+vi.mock('@/services/auth', () => ({
   currentUser: mockQueryCurrentUser,
+  clearAccessToken: mockClearAccessToken,
 }));
 
 vi.mock('@/components', () => ({
@@ -61,10 +63,8 @@ describe('app getInitialState', () => {
   it('should fetch currentUser when not on login page', async () => {
     const { getInitialState } = await import('./app');
     mockQueryCurrentUser.mockResolvedValue({
-      data: {
-        name: 'Test User',
-        access: 'admin',
-      },
+      name: 'Test User',
+      access: 'admin',
     });
 
     const state = await getInitialState();
@@ -88,6 +88,7 @@ describe('app getInitialState', () => {
       expect.stringContaining('/user/login?redirect='),
     );
     expect(state.currentUser).toBeUndefined();
+    expect(mockClearAccessToken).toHaveBeenCalled();
   });
 
   it('should not fetch currentUser on login page', async () => {
@@ -124,7 +125,7 @@ describe('app getInitialState', () => {
   it('should include default settings in initial state', async () => {
     const { getInitialState } = await import('./app');
     mockQueryCurrentUser.mockResolvedValue({
-      data: { name: 'User' },
+      name: 'User',
     });
 
     const state = await getInitialState();
@@ -135,7 +136,8 @@ describe('app getInitialState', () => {
   it('fetchUserInfo should return user data on success', async () => {
     const { getInitialState } = await import('./app');
     mockQueryCurrentUser.mockResolvedValue({
-      data: { name: 'Fetched User', access: 'user' },
+      name: 'Fetched User',
+      access: 'user',
     });
 
     const state = await getInitialState();

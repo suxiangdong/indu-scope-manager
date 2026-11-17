@@ -42,11 +42,18 @@ export const errorConfig: RequestConfig = {
         data,
         message: errorMessage,
         request_id,
+        showType,
       } = res as unknown as ResponseStructure;
       if (code !== 0) {
         const error: any = new Error(errorMessage);
         error.name = 'BizError';
-        error.info = { errorCode: code, errorMessage, request_id, data };
+        error.info = {
+          errorCode: code,
+          errorMessage,
+          request_id,
+          data,
+          showType,
+        };
         throw error; // 抛出自制的错误
       }
     },
@@ -84,7 +91,7 @@ export const errorConfig: RequestConfig = {
       } else if (error.response) {
         // Axios 的错误
         // 请求成功发出且服务器也响应了状态码，但状态代码超出了 2xx 的范围
-        if (error.response.status === 401 || error.response.status === 403) {
+        if (error.response.status === 401) {
           clearAccessToken();
           history.replace('/user/login');
         }

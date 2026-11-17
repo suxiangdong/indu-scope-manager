@@ -6,10 +6,9 @@ import React from 'react';
 const pageTitles: Record<string, string> = {
   '/operations/users': '用户管理',
   '/operations/verifications': '认证审核',
-  '/operations/channels': '销售渠道审核',
   '/catalog/categories': '类目管理',
   '/catalog/attributes': '属性管理',
-  '/catalog/products': '产品管理',
+  '/catalog/products': '产品审核',
 };
 
 const ComingSoon: React.FC = () => {

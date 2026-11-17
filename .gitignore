@@ -16,7 +16,6 @@ yarn-error.log
 
 /coverage
 .idea
-yarn.lock
 *bak
 .vscode
 
@@ -35,6 +34,7 @@ AGENTS.md
 .umi
 .umi-production
 .umi-test
+.umi-test-production
 .umi-undefined
 .turbopack
 
@@ -56,3 +56,29 @@ requestRecord.mock.js
 
 .vitest
 e2e-out
+
+# local environment files (keep shareable templates)
+.env
+.env.*
+!.env.example
+!.env.*.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+!.dev.vars.*.example
+
+# rebuildable tool caches and reports
+.cache/
+.vite/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+/playwright-report/
+/test-results/
+/blob-report/
+/types/cache/*.cache.json
+
+# editor temporary files
+*.swp
+*.swo
+*~

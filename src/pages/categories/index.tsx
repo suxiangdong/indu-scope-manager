@@ -3,6 +3,7 @@ import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import {
   ModalForm,
   PageContainer,
+  ProFormCascader,
   ProFormDigit,
   ProFormSelect,
   ProFormText,
@@ -44,17 +45,40 @@ function buildCategoryTree(items: CategoryListItem[]): CategoryTreeNode[] {
 function getCategoryPath(
   id: number,
   byId: Map<number, CategoryListItem>,
-): string {
-  const names: string[] = [];
+): number[] {
+  if (!id) return [0];
+  const path: number[] = [];
   const visited = new Set<number>();
   let current = byId.get(id);
   while (current && !visited.has(current.id)) {
     visited.add(current.id);
-    names.unshift(current.name);
+    path.unshift(current.id);
     current = current.parent_id ? byId.get(current.parent_id) : undefined;
   }
-  return names.join(' / ');
+  return path;
 }
+
+type CategoryCascaderOption = {
+  value: number;
+  label: string;
+  children?: CategoryCascaderOption[];
+};
+
+function buildCategoryOptions(
+  items: CategoryListItem[],
+): CategoryCascaderOption[] {
+  const tree = buildCategoryTree(items);
+  const toOption = (node: CategoryTreeNode): CategoryCascaderOption => ({
+    value: node.id,
+    label: node.name,
+    children: node.children?.map(toOption),
+  });
+  return [{ label: '无（一级类目）', value: 0 }, ...tree.map(toOption)];
+}
+
+type CategoryFormInput = Omit<CategoryFormValues, 'parent_id'> & {
+  parent_id: number | number[];
+};
 
 function isDescendant(
   id: number,
@@ -81,19 +105,12 @@ const Categories: React.FC = () => {
   const categoryOptions = useMemo(() => {
     const byId = new Map(categoryItems.map((item) => [item.id, item]));
     const currentId = editingCategory?.id;
-    return [
-      { label: '无（一级类目）', value: 0 },
-      ...categoryItems
-        .filter(
-          (item) =>
-            item.id !== currentId &&
-            (!currentId || !isDescendant(item.id, currentId, byId)),
-        )
-        .map((item) => ({
-          label: getCategoryPath(item.id, byId),
-          value: item.id,
-        })),
-    ];
+    const availableItems = categoryItems.filter(
+      (item) =>
+        item.id !== currentId &&
+        (!currentId || !isDescendant(item.id, currentId, byId)),
+    );
+    return buildCategoryOptions(availableItems);
   }, [categoryItems, editingCategory?.id]);
 
   const openCreate = (parentId?: number) => {
@@ -128,10 +145,19 @@ const Categories: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (values: CategoryFormValues) => {
+  const handleSubmit = async (values: CategoryFormInput) => {
     try {
+      const selectedPath = Array.isArray(values.parent_id)
+        ? values.parent_id
+        : [values.parent_id];
+      const selectedParentID = Number(
+        selectedPath[selectedPath.length - 1] || 0,
+      );
       const data = {
-        parent_id: values.parent_id ? Number(values.parent_id) : 0,
+        parent_id:
+          Number.isFinite(selectedParentID) && selectedParentID > 0
+            ? selectedParentID
+            : 0,
         name: values.name,
         sort_order: Number(values.sort_order || 0),
         status: values.status === undefined ? 1 : Number(values.status),
@@ -243,7 +269,7 @@ const Categories: React.FC = () => {
         toolBarRender={() => []}
       />
 
-      <ModalForm<CategoryFormValues>
+      <ModalForm<CategoryFormInput>
         key={editingCategory?.id ?? 'create'}
         title={editingCategory?.id ? '编辑类目' : '新增类目'}
         open={formOpen}
@@ -252,13 +278,19 @@ const Categories: React.FC = () => {
         initialValues={
           editingCategory?.id
             ? {
-                parent_id: editingCategory.parent_id || 0,
+                parent_id: getCategoryPath(
+                  editingCategory.parent_id || 0,
+                  new Map(categoryItems.map((item) => [item.id, item])),
+                ),
                 name: editingCategory.name,
                 sort_order: editingCategory.sort_order,
                 status: editingCategory.status,
               }
             : {
-                parent_id: editingCategory?.parent_id || 0,
+                parent_id: getCategoryPath(
+                  editingCategory?.parent_id || 0,
+                  new Map(categoryItems.map((item) => [item.id, item])),
+                ),
                 sort_order: 0,
                 status: 1,
               }
@@ -269,10 +301,16 @@ const Categories: React.FC = () => {
         }}
         onFinish={handleSubmit}
       >
-        <ProFormSelect
+        <ProFormCascader
           name="parent_id"
           label="父级类目"
-          options={categoryOptions}
+          placeholder="请选择父级类目"
+          fieldProps={{
+            options: categoryOptions,
+            showSearch: true,
+            changeOnSelect: true,
+            expandTrigger: 'click',
+          }}
         />
         <ProFormText
           name="name"

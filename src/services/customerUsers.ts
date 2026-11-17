@@ -5,6 +5,7 @@ import type { ApiEnvelope } from './auth';
 export type CustomerUser = {
   id: number;
   phone: string;
+  company_name?: string;
   role: number;
   user_type: number;
   status: number;
@@ -41,4 +42,12 @@ export async function updateCustomerUserStatus(id: number, status: number) {
     { method: 'POST', data: { id, status } },
   );
   return ensureSuccess(response, '修改用户状态失败');
+}
+
+export async function updateCustomerUserRole(id: number, role: number) {
+  const response = await request<ApiEnvelope<CustomerUser>>(
+    '/api/v1/admin/customer-users/role',
+    { method: 'POST', data: { id, role } },
+  );
+  return ensureSuccess(response, '切换用户角色失败');
 }

@@ -3,6 +3,9 @@ import { playwright } from '@vitest/browser-playwright';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  define: {
+    'process.env.API_BASE_URL': JSON.stringify(''),
+  },
   plugins: [
     {
       name: 'vitest-md-raw-loader',
@@ -23,6 +26,10 @@ export default defineConfig({
       '@root': join(__dirname),
       '@@': join(__dirname, 'src', '.umi'),
     },
+  },
+  optimizeDeps: {
+    // Umi's Node CLI exports are mocked in browser tests, not bundled for them.
+    exclude: ['@umijs/max'],
   },
   test: {
     browser: {

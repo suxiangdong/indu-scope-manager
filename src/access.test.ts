@@ -17,22 +17,21 @@ describe('access', () => {
     expect(result.canAdmin).toBe(true);
   });
 
-  it('should return canAdmin false when user has non-admin access', () => {
+  it('allows authenticated administrators without a legacy access string', () => {
     const initialState = {
       currentUser: {
         userid: '2',
         name: 'Regular User',
         avatar: 'https://example.com/avatar.png',
-        access: 'user',
       },
     };
 
     const result = access(initialState);
 
-    expect(result.canAdmin).toBe(false);
+    expect(result.canAdmin).toBe(true);
   });
 
-  it('should return canAdmin false when user access is undefined', () => {
+  it('does not grant refund permission to an ordinary administrator', () => {
     const initialState = {
       currentUser: {
         userid: '3',
@@ -43,7 +42,8 @@ describe('access', () => {
 
     const result = access(initialState);
 
-    expect(result.canAdmin).toBe(false);
+    expect(result.canAdmin).toBe(true);
+    expect(result.canRefund).toBe(false);
   });
 
   it('should return canAdmin false when currentUser is undefined', () => {

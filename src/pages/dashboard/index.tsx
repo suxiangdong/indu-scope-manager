@@ -5,7 +5,6 @@ import {
   ClockCircleOutlined,
   DatabaseOutlined,
   PlusOutlined,
-  ShopOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -31,13 +30,6 @@ const metrics = [
     suffix: '项',
     icon: <AuditOutlined />,
     color: '#e67700',
-  },
-  {
-    title: '待审核销售渠道',
-    value: '—',
-    suffix: '项',
-    icon: <ShopOutlined />,
-    color: '#1971c2',
   },
   {
     title: '平台用户',
@@ -68,12 +60,6 @@ const pendingItems = [
     count: '—',
     color: 'blue',
   },
-  {
-    title: '采购方销售渠道',
-    description: '等待审核的网店或自建网站信息',
-    count: '—',
-    color: 'purple',
-  },
 ];
 
 const quickActions = [
@@ -81,11 +67,6 @@ const quickActions = [
     label: '审核认证资料',
     path: '/operations/verifications',
     icon: <AuditOutlined />,
-  },
-  {
-    label: '审核销售渠道',
-    path: '/operations/channels',
-    icon: <ShopOutlined />,
   },
   {
     label: '管理产品类目',
@@ -128,7 +109,7 @@ const Dashboard: React.FC = () => {
                 color: 'rgba(255,255,255,.78)',
               }}
             >
-              从这里统一处理用户认证、销售渠道审核和产品资料维护，掌握平台运行状态。
+              从这里统一处理用户认证、需求审核和产品资料维护，掌握平台运行状态。
             </Typography.Paragraph>
           </Col>
           <Col xs={24} lg={8} style={{ textAlign: 'right' }}>

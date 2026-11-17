@@ -1,5 +1,7 @@
+import { history } from '@umijs/max';
 import { message, notification } from 'antd';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearAccessToken, getAccessToken } from '@/services/auth';
 import { errorConfig } from './requestErrorConfig';
 
 vi.mock('antd', () => ({
@@ -13,9 +15,15 @@ vi.mock('antd', () => ({
 }));
 
 vi.mock('@umijs/max', () => ({
+  history: { replace: vi.fn() },
   getIntl: vi.fn(() => ({
     formatMessage: vi.fn(({ defaultMessage }) => defaultMessage),
   })),
+}));
+
+vi.mock('@/services/auth', () => ({
+  clearAccessToken: vi.fn(),
+  getAccessToken: vi.fn(),
 }));
 
 describe('requestErrorConfig', () => {
@@ -29,12 +37,11 @@ describe('requestErrorConfig', () => {
   });
 
   describe('errorThrower', () => {
-    it('should throw error when success is false', () => {
+    it('should throw error when code is nonzero', () => {
       const response = {
-        success: false,
+        code: 300,
         data: null,
-        errorCode: 400,
-        errorMessage: 'Bad Request',
+        message: 'Bad Request',
         showType: 2,
       };
 
@@ -43,9 +50,10 @@ describe('requestErrorConfig', () => {
       }).toThrow('Bad Request');
     });
 
-    it('should not throw error when success is true', () => {
+    it('should not throw error when code is zero', () => {
       const response = {
-        success: true,
+        code: 0,
+        message: '',
         data: { id: 1 },
       };
 
@@ -56,10 +64,9 @@ describe('requestErrorConfig', () => {
 
     it('should throw BizError with correct info', () => {
       const response = {
-        success: false,
+        code: 300,
         data: { detail: 'more info' },
-        errorCode: 403,
-        errorMessage: 'Forbidden',
+        message: 'Forbidden',
         showType: 3,
       };
 
@@ -68,7 +75,7 @@ describe('requestErrorConfig', () => {
         errorThrower(response);
       } catch (error: any) {
         expect(error.name).toBe('BizError');
-        expect(error.info.errorCode).toBe(403);
+        expect(error.info.errorCode).toBe(300);
         expect(error.info.errorMessage).toBe('Forbidden');
         expect(error.info.showType).toBe(3);
         expect(error.info.data).toEqual({ detail: 'more info' });
@@ -142,7 +149,7 @@ describe('requestErrorConfig', () => {
       errorHandler(error, {});
 
       expect(notification.open).toHaveBeenCalledWith({
-        title: 1004,
+        message: '1004',
         description: 'This is a notification',
       });
     });
@@ -189,7 +196,26 @@ describe('requestErrorConfig', () => {
 
       errorHandler(error, {});
 
-      expect(message.error).toHaveBeenCalledWith('Response status:500');
+      expect(message.error).toHaveBeenCalledWith('请求失败（500）');
+    });
+
+    it('clears an expired session on HTTP 401', () => {
+      const error: any = new Error('Unauthorized');
+      error.response = { status: 401 };
+      errorHandler(error, {});
+
+      expect(clearAccessToken).toHaveBeenCalled();
+      expect(history.replace).toHaveBeenCalledWith('/user/login');
+    });
+
+    it('preserves the session when an administrator lacks permission', () => {
+      const error: any = new Error('Forbidden');
+      error.response = { status: 403 };
+      errorHandler(error, {});
+
+      expect(clearAccessToken).not.toHaveBeenCalled();
+      expect(history.replace).not.toHaveBeenCalled();
+      expect(message.error).toHaveBeenCalledWith('请求失败（403）');
     });
 
     it('should handle offline error', () => {
@@ -244,7 +270,12 @@ describe('requestErrorConfig', () => {
     const interceptor = errorConfig.requestInterceptors?.[0] as (config: {
       url?: string;
       method?: string;
-    }) => { url?: string };
+      headers?: Record<string, string>;
+    }) => { url?: string; headers?: Record<string, string> };
+
+    beforeEach(() => {
+      vi.mocked(getAccessToken).mockReturnValue(undefined);
+    });
 
     it('should pass through config without modification', () => {
       const config = {
@@ -254,8 +285,6 @@ describe('requestErrorConfig', () => {
 
       const result = interceptor(config);
 
-      // Token attachment is intentionally commented out in the source;
-      // interceptor currently returns config as-is
       expect(result.url).toBe('https://api.example.com/users');
     });
 
@@ -265,6 +294,22 @@ describe('requestErrorConfig', () => {
       const result = interceptor(config);
 
       expect(result.url).toBeUndefined();
+    });
+
+    it('adds the stored bearer token to authenticated requests', () => {
+      vi.mocked(getAccessToken).mockReturnValue('test-token');
+
+      expect(interceptor({ url: '/api/v1/admin/me' }).headers).toEqual({
+        Authorization: 'Bearer test-token',
+      });
+    });
+
+    it('does not attach a previous token to login requests', () => {
+      vi.mocked(getAccessToken).mockReturnValue('test-token');
+
+      expect(
+        interceptor({ url: '/api/v1/admin/auth/login' }).headers,
+      ).toBeUndefined();
     });
   });
 });
