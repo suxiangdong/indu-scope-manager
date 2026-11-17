@@ -45,7 +45,7 @@ jobs:
         ssh -i /tmp/ecs_ssh_key ecs-user@182.92.156.58 << 'EOF'
           set -e
           echo "触发部署脚本..."
-          cd /data/deploy/cffy-manager-front
+          cd /data/deploy/indu-manager
           sudo ./deploy.sh
 
           echo "部署完成"
