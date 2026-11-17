@@ -20,6 +20,14 @@ PORT=8001 npm run dev
 
 生产构建和预览：
 
+生产构建默认请求后端 `https://indu.cffytech.com`。可在构建时通过 `API_BASE_URL`
+覆盖；显式设置为空字符串可使用同源 `/api/` 反向代理。修改接口地址后需重新构建
+和部署，开发环境默认继续使用本地代理。
+
+跨域部署时，后端 Nginx 的 `location` 层需为普通接口响应和 OPTIONS 预检响应
+都配置 CORS，允许管理后台来源 `https://portal.cffytech.com`；只配置 OPTIONS
+响应头会使普通请求被浏览器拦截。
+
 ```bash
 npm run build
 npm run preview

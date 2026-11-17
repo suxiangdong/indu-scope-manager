@@ -8,6 +8,12 @@ import proxy from './proxy';
 import routes from './routes';
 
 const { UMI_ENV = 'dev' } = process.env;
+const apiBaseUrl = (
+  process.env.API_BASE_URL ??
+  (process.env.NODE_ENV === 'production' ? 'https://indu.cffytech.com' : '')
+)
+  .trim()
+  .replace(/\/+$/, '');
 
 // Compute commit hash: env vars take precedence, fall back to git at build time
 const commitHash =
@@ -229,6 +235,7 @@ export default defineConfig({
   requestRecord: {},
   exportStatic: {},
   define: {
+    'process.env.API_BASE_URL': apiBaseUrl,
     'process.env.CI': process.env.CI,
     'process.env.COMMIT_HASH': commitHash,
     __APP_VERSION__: require('./../package.json').version,
