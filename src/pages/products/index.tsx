@@ -17,6 +17,7 @@ import {
   type AdminProductAttribute,
   getAdminProductDetail,
   listAdminProducts,
+  reviewAdminProduct,
   updateAdminProductStatus,
 } from '@/services/adminProducts';
 import { type CategoryListItem, listCategories } from '@/services/categories';
@@ -46,10 +47,40 @@ function formatAttribute(attribute: AdminProductAttribute) {
     : attribute.value;
 }
 
+function productAction(status: number) {
+  if (status === 0) {
+    return {
+      text: '审核通过',
+      prompt: '确认审核通过该产品吗？通过后可手动上架。',
+      status: 2,
+      review: true,
+    };
+  }
+  if (status === 1) {
+    return {
+      text: '下架',
+      prompt: '确认下架该产品吗？',
+      status: 2,
+      review: false,
+    };
+  }
+  if (status === 2) {
+    return {
+      text: '上架',
+      prompt: '确认上架该产品吗？',
+      status: 1,
+      review: false,
+    };
+  }
+  return undefined;
+}
+
 const Products: React.FC = () => {
   const { message } = App.useApp();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const detailRequestRef = useRef(0);
+  const mutationRef = useRef(false);
+  const [updatingProductID, setUpdatingProductID] = useState<number>();
   const [categories, setCategories] = useState<CategoryListItem[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -94,22 +125,31 @@ const Products: React.FC = () => {
     setDetailLoading(false);
   };
 
-  const changeStatus = async (record: AdminProduct, status: number) => {
+  const changeStatus = async (record: AdminProduct) => {
+    const action = productAction(record.status);
+    if (!action || mutationRef.current) return;
+    mutationRef.current = true;
+    setUpdatingProductID(record.id);
     try {
-      const updated = await updateAdminProductStatus(record.id, status);
+      const updated = action.review
+        ? await reviewAdminProduct(record.id)
+        : await updateAdminProductStatus(record.id, action.status);
       setDetail((current) => (current?.id === updated.id ? updated : current));
       message.success(
-        status === 1
-          ? '产品审核已通过并上架'
-          : status === 2
-            ? '产品已下架'
-            : '产品已退回审核',
+        action.review
+          ? '产品审核已通过，待上架'
+          : action.status === 1
+            ? '产品已上架'
+            : '产品已下架',
       );
       actionRef.current?.reload();
     } catch (error) {
       message.error(
         error instanceof Error ? error.message : '更新产品状态失败',
       );
+    } finally {
+      mutationRef.current = false;
+      setUpdatingProductID(undefined);
     }
   };
 
@@ -194,28 +234,30 @@ const Products: React.FC = () => {
       valueType: 'option',
       width: 180,
       render: (_, record) => {
-        const nextStatus = record.status === 1 ? 2 : 1;
-        const actionText =
-          record.status === 0
-            ? '审核通过'
-            : record.status === 1
-              ? '下架'
-              : '重新上架';
+        const action = productAction(record.status);
         return (
           <Space>
             <Button type="link" onClick={() => void openDetail(record)}>
               详情
             </Button>
-            <Popconfirm
-              title={`确认${actionText}该产品吗？`}
-              okText="确认"
-              cancelText="取消"
-              onConfirm={() => void changeStatus(record, nextStatus)}
-            >
-              <Button type="link" danger={record.status === 1}>
-                {actionText}
-              </Button>
-            </Popconfirm>
+            {action && (
+              <Popconfirm
+                title={action.prompt}
+                okText="确认"
+                cancelText="取消"
+                onConfirm={() => changeStatus(record)}
+                disabled={updatingProductID !== undefined}
+              >
+                <Button
+                  type="link"
+                  danger={record.status === 1}
+                  loading={updatingProductID === record.id}
+                  disabled={updatingProductID !== undefined}
+                >
+                  {action.text}
+                </Button>
+              </Popconfirm>
+            )}
           </Space>
         );
       },
@@ -256,27 +298,20 @@ const Products: React.FC = () => {
         loading={detailLoading}
         onClose={closeDetail}
         extra={
-          !detailLoading && detail ? (
+          !detailLoading && detail && productAction(detail.status) ? (
             <Popconfirm
-              title={
-                detail.status === 1
-                  ? '确认下架该产品吗？'
-                  : detail.status === 0
-                    ? '确认审核通过并上架该产品吗？'
-                    : '确认重新上架该产品吗？'
-              }
+              title={productAction(detail.status)?.prompt}
               okText="确认"
               cancelText="取消"
-              onConfirm={() =>
-                void changeStatus(detail, detail.status === 1 ? 2 : 1)
-              }
+              onConfirm={() => changeStatus(detail)}
+              disabled={updatingProductID !== undefined}
             >
-              <Button type="primary">
-                {detail.status === 1
-                  ? '下架'
-                  : detail.status === 0
-                    ? '审核通过'
-                    : '重新上架'}
+              <Button
+                type="primary"
+                loading={updatingProductID === detail.id}
+                disabled={updatingProductID !== undefined}
+              >
+                {productAction(detail.status)?.text}
               </Button>
             </Popconfirm>
           ) : undefined

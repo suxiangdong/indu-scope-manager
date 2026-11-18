@@ -6,7 +6,7 @@ import {
   ProFormText,
   ProFormTextArea,
 } from '@ant-design/pro-components';
-import { App, Card, Tabs, Typography } from 'antd';
+import { Alert, App, Card, Tabs, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 import {
@@ -28,6 +28,14 @@ const AGREEMENT_META: Record<
     label: '自动续费协议',
     description: '说明自动续费扣款、取消方式和到期处理规则。',
   },
+  user: {
+    label: '用户协议',
+    description: '说明账号使用、平台服务、内容发布及用户权利义务。',
+  },
+  privacy: {
+    label: '隐私政策',
+    description: '说明实际运营主体、个人信息处理目的、保存期限和联系渠道。',
+  },
 };
 
 const defaults: Record<VipAgreement['key'], VipAgreement> = {
@@ -37,7 +45,7 @@ const defaults: Record<VipAgreement['key'], VipAgreement> = {
     title: '会员服务协议',
     content: '',
     status: 1,
-    version: 1,
+    version: 0,
     updated_at: '',
   },
   'auto-renew': {
@@ -46,7 +54,25 @@ const defaults: Record<VipAgreement['key'], VipAgreement> = {
     title: '自动续费协议',
     content: '',
     status: 1,
-    version: 1,
+    version: 0,
+    updated_at: '',
+  },
+  user: {
+    id: 0,
+    key: 'user',
+    title: '用户协议',
+    content: '',
+    status: 1,
+    version: 0,
+    updated_at: '',
+  },
+  privacy: {
+    id: 0,
+    key: 'privacy',
+    title: '隐私政策',
+    content: '',
+    status: 1,
+    version: 0,
     updated_at: '',
   },
 };
@@ -67,16 +93,14 @@ const VipAgreements: React.FC = () => {
         setAgreements((current) => {
           const next = { ...current };
           (result.items || []).forEach((item) => {
-            if (item.key === 'service' || item.key === 'auto-renew')
+            if (Object.hasOwn(AGREEMENT_META, item.key))
               next[item.key] = { ...next[item.key], ...item };
           });
           return next;
         });
       })
       .catch((error) =>
-        message.error(
-          error instanceof Error ? error.message : '获取会员协议失败',
-        ),
+        message.error(error instanceof Error ? error.message : '获取协议失败'),
       )
       .finally(() => mounted && setLoading(false));
     return () => {
@@ -88,6 +112,10 @@ const VipAgreements: React.FC = () => {
     key: VipAgreement['key'],
     values: VipAgreementForm,
   ) => {
+    if (!agreements[key].id) {
+      message.error('协议尚未初始化，请先执行初始化 SQL 并刷新页面');
+      return false;
+    }
     setSaving(true);
     try {
       const result = await updateVipAgreement(key, {
@@ -98,9 +126,7 @@ const VipAgreements: React.FC = () => {
       message.success(`${AGREEMENT_META[key].label}已保存，版本已更新`);
       return true;
     } catch (error) {
-      message.error(
-        error instanceof Error ? error.message : '保存会员协议失败',
-      );
+      message.error(error instanceof Error ? error.message : '保存协议失败');
       return false;
     } finally {
       setSaving(false);
@@ -109,8 +135,8 @@ const VipAgreements: React.FC = () => {
 
   return (
     <PageContainer
-      title="会员协议"
-      subTitle="管理小程序展示的会员服务协议和自动续费协议"
+      title="协议管理"
+      subTitle="管理用户协议、隐私政策及会员协议，每次保存生成新版本并保留历史记录"
     >
       <Card loading={loading}>
         <Tabs
@@ -120,7 +146,14 @@ const VipAgreements: React.FC = () => {
             (key) => ({
               key,
               label: AGREEMENT_META[key].label,
-              children: (
+              children: !agreements[key].id ? (
+                <Alert
+                  type="warning"
+                  showIcon
+                  title={`${AGREEMENT_META[key].label}尚未初始化`}
+                  description="请先执行后端提供的协议初始化 SQL，填写真实运营信息后刷新页面。初始化完成前暂不提供编辑和保存。"
+                />
+              ) : (
                 <>
                   <Typography.Paragraph type="secondary">
                     {AGREEMENT_META[key].description} 当前版本：v

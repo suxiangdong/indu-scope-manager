@@ -83,3 +83,11 @@ export async function updateAdminProductStatus(id: number, status: number) {
   );
   return ensureSuccess(response, '更新产品状态失败');
 }
+
+export async function reviewAdminProduct(id: number) {
+  const response = await request<ApiEnvelope<AdminProduct>>(
+    '/api/v1/admin/products/review',
+    { method: 'POST', data: { id } },
+  );
+  return ensureSuccess(response, '审核产品失败');
+}

@@ -4,7 +4,7 @@ import type { ApiEnvelope } from './auth';
 
 export type VipAgreement = {
   id: number;
-  key: 'service' | 'auto-renew';
+  key: 'service' | 'auto-renew' | 'user' | 'privacy';
   title: string;
   content: string;
   status: number;
@@ -21,10 +21,10 @@ function ensureSuccess<T>(response: ApiEnvelope<T>, fallback: string) {
 
 export async function listVipAgreements() {
   const response = await request<ApiEnvelope<{ items: VipAgreement[] }>>('/api/v1/admin/vip/agreements', { method: 'GET' });
-  return ensureSuccess(response, '获取会员协议失败');
+  return ensureSuccess(response, '获取协议失败');
 }
 
 export async function updateVipAgreement(key: VipAgreement['key'], data: VipAgreementForm) {
   const response = await request<ApiEnvelope<VipAgreement>>('/api/v1/admin/vip/agreements/update', { method: 'POST', data: { key, ...data } });
-  return ensureSuccess(response, '保存会员协议失败');
+  return ensureSuccess(response, '保存协议失败');
 }

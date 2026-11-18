@@ -29,7 +29,7 @@ PORT=8001 npm run dev
 构建产物，修改后需要重新构建和部署。开发环境默认继续使用本地代理。
 
 管理后台与接口跨域部署时，后端 Nginx 的 `location` 层需要为普通接口响应和
-OPTIONS 预检响应都配置 CORS，允许管理后台来源 `https://portal.cffytech.com`；
+OPTIONS 预检响应都配置 CORS，允许管理后台来源 `https://manager.indu.cffytech.com`；
 只在 OPTIONS 分支添加允许来源响应头会使普通请求被浏览器拦截。
 
 ```bash
@@ -54,7 +54,7 @@ npm run tsc
 - `/system/store-platforms`：店铺平台维护
 - `/system/app-pages`：关于我们与联系我们内容管理
 - `/system/vip-plans`：会员套餐
-- `/system/vip-agreements`：会员服务协议和自动续费协议
+- `/system/vip-agreements`：用户协议、隐私政策、会员服务协议和自动续费协议；保存时新增版本并保留历史记录
 - `/catalog/categories`：产品类目管理
 - `/catalog/hot-categories`：首页热门分类
 - `/catalog/attributes`：全局产品属性和属性选项管理

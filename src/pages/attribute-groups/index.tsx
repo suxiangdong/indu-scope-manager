@@ -9,10 +9,12 @@ import {
   ProTable,
 } from '@ant-design/pro-components';
 import {
+  Alert,
   App,
   Button,
   Cascader,
   Drawer,
+  InputNumber,
   Popconfirm,
   Select,
   Space,
@@ -46,6 +48,11 @@ type CategoryOption = {
   value: number;
   label: string;
   children?: CategoryOption[];
+};
+
+type CategoryAttributeDraft = {
+  is_required: number;
+  sort_order: number | null;
 };
 
 function buildCategoryOptions(
@@ -99,6 +106,13 @@ const AttributeGroups: React.FC = () => {
   const [categoryAttributes, setCategoryAttributes] = useState<
     CategoryAttributeBinding[]
   >([]);
+  const [categoryAttributeDrafts, setCategoryAttributeDrafts] = useState<
+    Record<number, CategoryAttributeDraft>
+  >({});
+  const [savingCategoryAttributeId, setSavingCategoryAttributeId] =
+    useState<number>();
+  const categoryAttributeRequestRef = useRef(0);
+  const categoryAttributeSavingRef = useRef(false);
 
   const reloadGroups = async () => {
     await listAttributeGroups();
@@ -240,40 +254,83 @@ const AttributeGroups: React.FC = () => {
   };
 
   const openCategoryAttributes = async (categoryId: number) => {
+    const requestId = ++categoryAttributeRequestRef.current;
     try {
       const result = await listCategoryAttributeBindings(categoryId);
+      if (requestId !== categoryAttributeRequestRef.current) return;
       setOverrideCategoryId(categoryId);
       setCategoryAttributes(result.items);
+      setCategoryAttributeDrafts({});
     } catch (error) {
       message.error(error instanceof Error ? error.message : '获取类目属性失败');
     }
   };
 
-  const handleRequiredChange = async (
+  const updateCategoryAttributeDraft = (
     record: CategoryAttributeBinding,
-    isRequired: number,
+    patch: Partial<CategoryAttributeDraft>,
   ) => {
+    setCategoryAttributeDrafts((current) => ({
+      ...current,
+      [record.attribute_id]: {
+        ...(current[record.attribute_id] ?? {
+          is_required: record.is_required,
+          sort_order: record.sort_order,
+        }),
+        ...patch,
+      },
+    }));
+  };
+
+  const handleSaveCategoryAttribute = async (record: CategoryAttributeBinding) => {
+    const draft = categoryAttributeDrafts[record.attribute_id];
+    if (!draft || categoryAttributeSavingRef.current) return;
+    if (
+      draft.sort_order === null ||
+      !Number.isSafeInteger(draft.sort_order) ||
+      draft.sort_order < 0 ||
+      draft.sort_order > 4294967295
+    ) {
+      message.error('排序值需为非负整数');
+      return;
+    }
+    const requestId = categoryAttributeRequestRef.current;
+    categoryAttributeSavingRef.current = true;
+    setSavingCategoryAttributeId(record.attribute_id);
     try {
-      await saveCategoryAttributeBinding({
+      const saved = await saveCategoryAttributeBinding({
         category_id: record.category_id,
         attribute_id: record.attribute_id,
         group_id: record.group_id,
         group_name: record.group_name,
-        is_required: isRequired,
+        is_required: draft.is_required,
         is_filterable: record.is_filterable,
         is_searchable: record.is_searchable,
-        sort_order: record.sort_order,
+        sort_order: draft.sort_order,
       });
+      if (requestId !== categoryAttributeRequestRef.current) return;
       setCategoryAttributes((current) =>
-        current.map((item) =>
-          item.attribute_id === record.attribute_id
-            ? { ...item, is_required: isRequired }
-            : item,
-        ),
+        current
+          .map((item) =>
+            item.attribute_id === record.attribute_id ? saved : item,
+          )
+          .sort(
+            (left, right) =>
+              left.sort_order - right.sort_order ||
+              left.attribute_id - right.attribute_id,
+          ),
       );
+      setCategoryAttributeDrafts((current) => {
+        const next = { ...current };
+        delete next[record.attribute_id];
+        return next;
+      });
       message.success('类目属性配置已更新');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '更新类目属性失败');
+    } finally {
+      categoryAttributeSavingRef.current = false;
+      setSavingCategoryAttributeId(undefined);
     }
   };
 
@@ -429,24 +486,69 @@ const AttributeGroups: React.FC = () => {
   ];
 
   const categoryAttributeColumns: ProColumns<CategoryAttributeBinding>[] = [
-    { title: '属性', dataIndex: 'attribute_name' },
+    { title: '属性', dataIndex: 'attribute_name', width: 140 },
     {
       title: '分组',
       dataIndex: 'group_display_name',
+      width: 140,
       render: (_, record) => record.group_display_name || record.group_name || '-',
     },
     {
       title: '是否必填',
       dataIndex: 'is_required',
+      width: 110,
       render: (_, record) => (
         <Select
-          value={record.is_required}
+          aria-label={`${record.attribute_name}是否必填`}
+          value={categoryAttributeDrafts[record.attribute_id]?.is_required ?? record.is_required}
+          disabled={savingCategoryAttributeId !== undefined}
           options={[{ label: '否', value: 0 }, { label: '是', value: 1 }]}
-          onChange={(value) => handleRequiredChange(record, Number(value))}
+          onChange={(value) => updateCategoryAttributeDraft(record, { is_required: Number(value) })}
         />
       ),
     },
-    { title: '排序', dataIndex: 'sort_order', width: 80 },
+    {
+      title: '排序',
+      dataIndex: 'sort_order',
+      width: 140,
+      render: (_, record) => (
+        <InputNumber
+          aria-label={`${record.attribute_name}排序`}
+          min={0}
+          max={4294967295}
+          precision={0}
+          value={categoryAttributeDrafts[record.attribute_id]?.sort_order === undefined
+            ? record.sort_order
+            : categoryAttributeDrafts[record.attribute_id].sort_order}
+          disabled={savingCategoryAttributeId !== undefined}
+          onChange={(value) => updateCategoryAttributeDraft(record, { sort_order: value })}
+          style={{ width: '100%' }}
+        />
+      ),
+    },
+    {
+      title: '操作',
+      valueType: 'option',
+      width: 90,
+      render: (_, record) => {
+        const draft = categoryAttributeDrafts[record.attribute_id];
+        const changed = draft && (
+          draft.is_required !== record.is_required ||
+          draft.sort_order !== record.sort_order
+        );
+        return (
+          <Button
+            type="link"
+            aria-label={`保存${record.attribute_name}配置`}
+            loading={savingCategoryAttributeId === record.attribute_id}
+            disabled={!changed || savingCategoryAttributeId !== undefined}
+            onClick={() => handleSaveCategoryAttribute(record)}
+          >
+            保存
+          </Button>
+        );
+      },
+    },
   ];
 
   const selectedAttributeIDs = new Set(groupAttributes.map((item) => item.attribute_id));
@@ -572,14 +674,23 @@ const AttributeGroups: React.FC = () => {
         open={Boolean(overrideCategoryId)}
         width={720}
         onClose={() => {
+          categoryAttributeRequestRef.current += 1;
           setOverrideCategoryId(undefined);
           setCategoryAttributes([]);
+          setCategoryAttributeDrafts({});
         }}
       >
+        <Alert
+          type="info"
+          showIcon
+          title="排序值越小越靠前；修改后点击每行的“保存”，仅影响当前类目。"
+          style={{ marginBottom: 16 }}
+        />
         <ProTable<CategoryAttributeBinding>
           rowKey={(record) => `${record.category_id}-${record.attribute_id}`}
           columns={categoryAttributeColumns}
           dataSource={categoryAttributes}
+          scroll={{ x: 620 }}
           search={false}
           pagination={false}
           options={false}

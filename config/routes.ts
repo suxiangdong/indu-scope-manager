@@ -136,7 +136,7 @@ export default [
       },
       {
         path: '/system/vip-agreements',
-        name: '会员协议',
+        name: '协议管理',
         icon: 'file-protect',
         component: './vip-agreements',
       },
