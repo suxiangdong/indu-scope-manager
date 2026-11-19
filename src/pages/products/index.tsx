@@ -79,6 +79,7 @@ const Products: React.FC = () => {
   const { message } = App.useApp();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const detailRequestRef = useRef(0);
+  const detailProductIDRef = useRef<number | undefined>(undefined);
   const mutationRef = useRef(false);
   const [updatingProductID, setUpdatingProductID] = useState<number>();
   const [categories, setCategories] = useState<CategoryListItem[]>([]);
@@ -101,6 +102,7 @@ const Products: React.FC = () => {
 
   const openDetail = async (record: AdminProduct) => {
     const requestId = ++detailRequestRef.current;
+    detailProductIDRef.current = record.id;
     setDetail(undefined);
     setDetailOpen(true);
     setDetailLoading(true);
@@ -112,6 +114,7 @@ const Products: React.FC = () => {
       message.error(
         error instanceof Error ? error.message : '获取产品详情失败',
       );
+      detailProductIDRef.current = undefined;
       setDetailOpen(false);
     } finally {
       if (requestId === detailRequestRef.current) setDetailLoading(false);
@@ -120,6 +123,7 @@ const Products: React.FC = () => {
 
   const closeDetail = () => {
     detailRequestRef.current += 1;
+    detailProductIDRef.current = undefined;
     setDetailOpen(false);
     setDetail(undefined);
     setDetailLoading(false);
@@ -134,7 +138,13 @@ const Products: React.FC = () => {
       const updated = action.review
         ? await reviewAdminProduct(record.id)
         : await updateAdminProductStatus(record.id, action.status);
-      setDetail((current) => (current?.id === updated.id ? updated : current));
+      if (detailProductIDRef.current === updated.id) {
+        // The mutation returns the current full detail. Invalidate any older
+        // read before it can replace this result, including reads still loading.
+        detailRequestRef.current += 1;
+        setDetail(updated);
+        setDetailLoading(false);
+      }
       message.success(
         action.review
           ? '产品审核已通过，待上架'
